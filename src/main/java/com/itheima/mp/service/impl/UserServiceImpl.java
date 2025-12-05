@@ -125,19 +125,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         // 条件
         String name = query.getName();
         Integer status = query.getStatus();
-        // 1. 获取前端传来的基本分页参数（第几页，每页查几条）
-        Page<User> page = Page.of(query.getPageNo(), query.getPageSize());
-        // 2. 处理排序逻辑
-        // StrUtil (Hutool工具包)，用于判断字符串是否为空。
-        if (StrUtil.isNotBlank(query.getSortBy())) {
-            // 2.1 如果前端指定了排序字段（比如按 'balance' 排序）
-            // query.getIsAsc() 是布尔值，决定是正序还是倒序
-            page.addOrder(new OrderItem(query.getSortBy(), query.getIsAsc()));
-        } else {
-            // 2.2 【兜底策略】如果没传排序，默认按照 update_time 倒序排列
-            // 这是一个好习惯，防止分页数据乱序跳动
-            page.addOrder(new OrderItem("update_time", false));
-        }
+        Page<User> page = query.toMPPageDefaultSortByUpdateTime();
 
         // 查询
         Page<User> p = lambdaQuery()
@@ -149,19 +137,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
                 .page(page);
         // .page(page) 是触发点。此时 MP 会拿着你设置的条件和 page 里的参数，去数据库执行两条 SQL。
 
-        // 1. 创建返回给前端的大对象 PageDTO
-        PageDTO<UserVO> pageDTO = new PageDTO<>();
-        // 2. 把总条数、总页数放进去
-        pageDTO.setTotal(p.getTotal());
-        pageDTO.setPages(p.getPages());
-        List<User> records = p.getRecords();
-        // 4. 【性能优化】如果查出来是空的，直接返回空列表，不要去执行拷贝逻辑了
-        if (CollUtil.isEmpty(records)) {
-            pageDTO.setList(Collections.emptyList());
-            return pageDTO;
-        }
-        // 使用 Hutool 的 BeanUtil 工具，把 User 列表里的属性，批量拷贝到 UserVO 列表中
-        pageDTO.setList(BeanUtil.copyToList(records, UserVO.class));
-        return pageDTO;
+//        return PageDTO.of(p, user -> BeanUtil.copyProperties(user, UserVO.class));
+        return PageDTO.of(p, user -> {
+            UserVO userVO = BeanUtil.copyProperties(user, UserVO.class);
+            userVO.setUsername(userVO.getUsername().substring(0,
+                    userVO.getUsername().length() - 2) + "**");
+            return userVO;
+        });
+
     }
 }
