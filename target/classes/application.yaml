@@ -17,7 +17,7 @@ mybatis-plus:
   global-config:
     db-config:
       id-type: auto
-
+      logic-delete-field: deleted
 knife4j:
   enable: true
   openapi:
