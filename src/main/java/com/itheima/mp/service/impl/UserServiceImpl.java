@@ -2,15 +2,21 @@ package com.itheima.mp.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.StrUtil;
+import com.baomidou.mybatisplus.core.metadata.OrderItem;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.baomidou.mybatisplus.extension.toolkit.Db;
+import com.itheima.mp.domain.dto.PageDTO;
 import com.itheima.mp.domain.po.Address;
 import com.itheima.mp.domain.po.User;
+import com.itheima.mp.domain.query.UserQuery;
 import com.itheima.mp.domain.vo.AddressVO;
 import com.itheima.mp.domain.vo.UserVO;
 import com.itheima.mp.enums.UserStatus;
 import com.itheima.mp.mapper.UserMapper;
 import com.itheima.mp.service.IUserService;
+import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -112,5 +118,37 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         }
 
         return userList;
+    }
+
+    @Override
+    public PageDTO<UserVO> queryUsersPage(UserQuery query) {
+        // 条件
+        String name = query.getName();
+        Integer status = query.getStatus();
+        Page<User> page = Page.of(query.getPageNo(), query.getPageSize());
+        if (StrUtil.isNotBlank(query.getSortBy())) {
+            page.addOrder(new OrderItem(query.getSortBy(), query.getIsAsc()));
+        } else {
+            // 为空 默认按照时间排序
+            page.addOrder(new OrderItem("update_time", false));
+        }
+
+        // 查询
+        Page<User> p =  lambdaQuery()
+                .like(name != null, User::getUsername, name)
+                .eq(status != null, User::getStatus, status)
+                .page(page);
+        // 封装vo
+        PageDTO<UserVO> pageDTO = new PageDTO<>();
+        pageDTO.setTotal(p.getTotal());
+        pageDTO.setPages(p.getPages());
+        List<User> records = p.getRecords();
+        if (CollUtil.isEmpty(records)) {
+            pageDTO.setList(Collections.emptyList());
+            return pageDTO;
+        }
+        // 拷贝user vo
+        pageDTO.setList(BeanUtil.copyToList(records, UserVO.class));
+        return pageDTO;
     }
 }
